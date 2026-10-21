@@ -1,0 +1,6 @@
+config.json
+*.key
+*.pem
+*.env
+vless-reality-link.txt
+*backup*
