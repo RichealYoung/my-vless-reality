@@ -72,8 +72,19 @@ cat /root/vless-reality-link.txt
 ```bash
 bash -n install-reality.sh
 bash tests/routing.sh
+bash tests/credentials.sh
 ```
 
 路由测试需要 `jq`，验证规则可重复更新、保留已有规则和默认出口、拒绝复用配置不同的 `warp` 出口。测试不会安装软件、修改系统配置或重启服务。
+
+部署完成后，可在服务器上运行 `bash tests/live-probe.sh 服务器公网IP`，临时启动仅监听本地的测试客户端，经真实 Reality 入口检查 Grok/LeetCode 的 WARP 路由及默认直连。测试不修改生产配置，完成后清理临时进程和文件。
+
+## 已修复的安装报错
+
+初版可能在下载 Xray 后报 `Could not read Xray key pair`。原因是 v26.9.9 的公钥字段实际为 `Password (PublicKey):`，初版解析器未匹配该标签。现已兼容该格式以及其他常见标签，并增加回归测试。
+
+全新服务器还可能报 `failed to initialize access logger ... no such file or directory`：初版在创建日志目录前验证配置。现在预检使用临时日志路径，安装时预创建正式日志并设置服务账户权限。
+
+如果此前停在该错误且未安装 Xray，更新仓库后重新运行安装脚本即可。如果报错发生在其他阶段，应保留错误输出并先检查，避免删除现有服务配置。
 
 官方参考：[Xray 发布版本](https://github.com/XTLS/Xray-core/releases/tag/v26.9.9)、[WARP Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)、[WARP 软件源](https://pkg.cloudflareclient.com/)。

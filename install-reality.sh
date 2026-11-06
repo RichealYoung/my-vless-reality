@@ -13,6 +13,21 @@ SUCCESS=0
 WARP_DOMAINS=(grok.com x.ai grok.x.com grokipedia.com leetcode.com leetcode.cn leetcode-cn.com leetcdn.cn)
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+x25519_field() {
+    awk -F: -v kind="$2" '
+      {
+        label = tolower($1)
+        gsub(/[^a-z]/, "", label)
+        if ((kind == "private" && label == "privatekey") ||
+            (kind == "public" && (label == "passwordpublickey" || label == "publickey" || label == "password"))) {
+          value = $2
+          gsub(/[[:space:]]/, "", value)
+          print value
+          exit
+        }
+      }
+    ' <<< "$1"
+}
 cleanup() {
     local code=$?
     trap - EXIT
@@ -175,8 +190,8 @@ install_xray() {
     else
         key_output=$("$TMP_DIR/extracted/xray" x25519)
     fi
-    private_key=$(awk '/^PrivateKey:/ {print $2}' <<< "$key_output")
-    public_key=$(awk '/^(Password|PublicKey):/ {print $2; exit}' <<< "$key_output")
+    private_key=$(x25519_field "$key_output" private)
+    public_key=$(x25519_field "$key_output" public)
     short_id="${SHORT_ID:-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')}"
     [[ "$uuid" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] || die 'Invalid UUID.'
     [[ "$private_key" =~ ^[A-Za-z0-9_-]{43}$ && "$public_key" =~ ^[A-Za-z0-9_-]{43}$ ]] || die 'Could not read Xray key pair.'
@@ -191,7 +206,10 @@ install_xray() {
       outbounds:[{protocol:"freedom",tag:"direct"},{protocol:"blackhole",tag:"block"}]
     }' > "$TMP_DIR/base.json"
     add_routes "$TMP_DIR/base.json" "$TMP_DIR/config.json"
-    "$TMP_DIR/extracted/xray" run -test -config "$TMP_DIR/config.json"
+    # A fresh machine has no log directory yet; validate with temporary log paths.
+    jq --arg access "$TMP_DIR/config-check.access.log" --arg error "$TMP_DIR/config-check.error.log" \
+      '.log.access = $access | .log.error = $error' "$TMP_DIR/config.json" > "$TMP_DIR/config-check.json"
+    "$TMP_DIR/extracted/xray" run -test -config "$TMP_DIR/config-check.json"
     setup_warp
 
     local backup_dir
@@ -204,6 +222,9 @@ install_xray() {
     fi
     install -d -m 755 /usr/local/share/xray /usr/local/etc/xray
     install -d -o xray-reality -g xray-reality -m 750 /var/log/xray
+    touch /var/log/xray/access.log /var/log/xray/error.log
+    chown xray-reality:xray-reality /var/log/xray/access.log /var/log/xray/error.log
+    chmod 640 /var/log/xray/access.log /var/log/xray/error.log
     install -m 755 "$TMP_DIR/extracted/xray" /usr/local/bin/xray
     install -m 644 "$TMP_DIR/extracted/geoip.dat" /usr/local/share/xray/geoip.dat
     install -m 644 "$TMP_DIR/extracted/geosite.dat" /usr/local/share/xray/geosite.dat
