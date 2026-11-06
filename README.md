@@ -6,15 +6,22 @@
 
 支持 Ubuntu 22.04/24.04/26.04、Debian 12/13，x86_64 或 ARM64，要求运行 systemd、能连接 GitHub 与 Cloudflare。安装 WARP 即接受 Cloudflare 的服务条款；安装过程使用官方 APT 软件源。
 
-这是私有仓库。推荐在已登录 GitHub 的本机下载，再通过 SSH 上传，不需要把 GitHub 令牌放到新服务器。下面在本机 PowerShell 执行，将 `新服务器公网IP` 替换为真实地址：
+这是公开仓库，下载或克隆无需 GitHub 登录或令牌。以 root 登录新服务器后执行，将 `新服务器公网IP` 替换为真实地址（需要已安装 `curl`）：
 
-```powershell
-git clone https://github.com/RichealYoung/my-vless-reality.git
-scp .\my-vless-reality\install-reality.sh root@新服务器公网IP:/root/install-reality.sh
-ssh root@新服务器公网IP 'bash /root/install-reality.sh 新服务器公网IP'
+```bash
+curl -fL --retry 3 https://raw.githubusercontent.com/RichealYoung/my-vless-reality/main/install-reality.sh -o /root/install-reality.sh && \
+bash /root/install-reality.sh 新服务器公网IP
 ```
 
-已有本地仓库时先 `git -C .\my-vless-reality pull --ff-only`，然后上传、运行。如果脚本已经在服务器上，直接执行 `bash /root/install-reality.sh 新服务器公网IP`。
+也可克隆完整仓库，包含说明和测试脚本（需要已安装 `git`）：
+
+```bash
+git clone https://github.com/RichealYoung/my-vless-reality.git && \
+cd my-vless-reality && \
+bash install-reality.sh 新服务器公网IP
+```
+
+如果已经克隆过，在仓库目录执行 `git pull --ff-only` 获取最新版。全新安装使用 `bash install-reality.sh 新服务器公网IP`；已有 Xray 时使用下文的分流更新模式。
 
 不传 IP 时尝试自动获取公网 IPv4；存在 NAT 或其他代理时建议明确传入 IP。先下载再运行，不通过管道直接执行远程内容。
 
@@ -39,11 +46,17 @@ WARP 是出口路由；Reality 是客户端到服务器的传输安全配置，�
 
 适用于本项目路径 `/usr/local/etc/xray/config.json`，要求已有 WARP 代理 `127.0.0.1:40000` 正常工作：
 
-在本机更新仓库后执行：
+以 root 在服务器上下载最新版并更新分流：
 
-```powershell
-scp .\my-vless-reality\install-reality.sh root@服务器公网IP:/root/install-reality.sh
-ssh root@服务器公网IP 'bash /root/install-reality.sh --update-routing'
+```bash
+curl -fL --retry 3 https://raw.githubusercontent.com/RichealYoung/my-vless-reality/main/install-reality.sh -o /root/install-reality.sh && \
+bash /root/install-reality.sh --update-routing
+```
+
+使用 Git 克隆的仓库时，也可以在仓库目录执行：
+
+```bash
+git pull --ff-only && bash install-reality.sh --update-routing
 ```
 
 此模式保留 UUID、密钥、入站和其他分流规则，备份配置、验证新配置并重启 Xray；重启失败时恢复原配置。重复执行不会重复添加相同的规则。Xray 重启会短暂中断现有代理连接。
@@ -77,7 +90,7 @@ bash tests/credentials.sh
 
 路由测试需要 `jq`，验证规则可重复更新、保留已有规则和默认出口、拒绝复用配置不同的 `warp` 出口。测试不会安装软件、修改系统配置或重启服务。
 
-部署完成后，可在服务器上运行 `bash tests/live-probe.sh 服务器公网IP`，临时启动仅监听本地的测试客户端，经真实 Reality 入口检查 Grok/LeetCode 的 WARP 路由及默认直连。测试不修改生产配置，完成后清理临时进程和文件。
+上述检查在克隆的仓库目录中执行；仅下载安装脚本时不包含 `tests/` 目录。部署完成后，可在服务器的仓库目录运行 `bash tests/live-probe.sh 服务器公网IP`，临时启动仅监听本地的测试客户端，经真实 Reality 入口检查 Grok/LeetCode 的 WARP 路由及默认直连。测试不修改生产配置，完成后清理临时进程和文件。
 
 ## 已修复的安装报错
 
